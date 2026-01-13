@@ -1,0 +1,103 @@
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+
+from .db import engine, Base, get_db, ensure_pgvector
+from . import models
+from .auth import authenticate_user, create_access_token, get_current_user
+from .schemas import TokenResponse, QueryRequest, QueryResponse, SourceItem
+from .rag import retrieve
+from .llm import generate_answer
+
+app = FastAPI(title="Local Email RAG (Multi-User)")
+
+
+@app.on_event("startup")
+def on_startup():
+    ensure_pgvector()
+    Base.metadata.create_all(bind=engine)
+
+
+@app.post("/auth/token", response_model=TokenResponse)
+def login_token(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = authenticate_user(db, form.username, form.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return TokenResponse(access_token=create_access_token(user.id))
+
+
+@app.get("/emails/{email_id}")
+def get_email(email_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    email = (
+        db.query(models.Email)
+        .filter(models.Email.id == email_id, models.Email.user_id == user.id)
+        .first()
+    )
+    if not email:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    return {
+        "id": email.id,
+        "subject": email.subject,
+        "sender": email.sender,
+        "to": email.to,
+        "cc": email.cc,
+        "bcc": email.bcc,
+        "sent_at": email.sent_at.isoformat() if email.sent_at else None,
+        "body": email.body,
+        "source": email.source,
+        "source_ref": email.source_ref,
+    }
+
+
+@app.post("/query", response_model=QueryResponse)
+def query(req: QueryRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    hits = retrieve(db, user.id, req.query)
+
+    context_blocks = []
+    sources = []
+    for h in hits:
+        link = f"/emails/{h['email_id']}"
+        snippet = h["chunk_text"]
+        if len(snippet) > 300:
+            snippet = snippet[:300] + "…"
+
+        context_blocks.append(
+            f"[Email {h['email_id']}]\n"
+            f"Subject: {h['subject']}\n"
+            f"From: {h['sender']}\n"
+            f"Sent: {h['sent_at']}\n"
+            f"Text: {h['chunk_text']}"
+        )
+
+        sources.append(
+            SourceItem(
+                email_id=h["email_id"],
+                subject=h["subject"],
+                sender=h["sender"],
+                sent_at=h["sent_at"],
+                link=link,
+                snippet=snippet,
+            )
+        )
+
+    system = (
+        "You answer questions using only the provided email context. "
+        "If the answer is not in the context, say you cannot find it. "
+        "Cite sources like [Email 12]."
+    )
+
+    clean_context = context.replace("\n", " ")
+
+    prompt = (
+        "You are a helpful assistant answering questions using the email context below.\n\n"
+        "Context:\n"
+        f"{clean_context}\n\n"
+        "Question:\n"
+        f"{query}\n\n"
+        "Answer:"
+    )
+
+    answer = generate_answer(system=system, prompt=prompt)
+    return QueryResponse(answer=answer, sources=sources)
+

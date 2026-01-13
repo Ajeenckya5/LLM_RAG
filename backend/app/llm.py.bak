@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+from llama_cpp import Llama
+from .config import settings
+
+_llm: Llama | None = None
+
+
+def get_llm() -> Llama:
+    global _llm
+    if _llm is None:
+        _llm = Llama(
+            model_path=settings.LLM_GGUF_PATH,
+            n_ctx=settings.LLM_CTX,
+            n_threads=settings.LLM_THREADS,
+            n_gpu_layers=0,
+            verbose=False,
+        )
+    return _llm
+
+
+def generate_answer(system: str, prompt: str, max_tokens: int = 512) -> str:
+    llm = get_llm()
+
+    full_prompt = (
+        "<s>[INST] <<SYS>>\n"
+        f"{system}\n"
+        "<</SYS>>\n\n"
+        f"{prompt} [/INST]"
+    )
+
+    out = llm(
+        full_prompt,
+        max_tokens=max_tokens,
+        temperature=0.2,
+        top_p=0.95,
+        stop=["</s>"],
+    )
+    return (out["choices"][0]["text"] or "").strip()
+

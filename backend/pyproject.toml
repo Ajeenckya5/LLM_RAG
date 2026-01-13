@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "local-email-rag"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn[standard]==0.34.0",
+  "pydantic==2.10.4",
+  "pydantic-settings==2.7.0",
+  "python-dotenv==1.0.1",
+
+  "sqlalchemy==2.0.37",
+  "psycopg[binary]==3.2.4",
+
+  "pgvector==0.3.6",
+
+  "passlib[bcrypt]==1.7.4",
+  "python-jose==3.3.0",
+
+  "sentence-transformers==3.3.1",
+  "numpy>=2.1.0, < 2.3.0",
+
+  "llama-cpp-python==0.3.7",
+  "requests==2.32.3",
+]
+
+[tool.setuptools]
+packages = ["app", "scripts"]
+
