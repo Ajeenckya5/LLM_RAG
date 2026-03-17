@@ -1,28 +1,52 @@
-# Local Multi-User Email RAG (Postgres + pgvector + Mistral 7B)
+# Local Multi-User Email RAG
 
-A fully local Retrieval-Augmented Generation system that:
-- ingests emails (`.eml` demo; extendable to Gmail IMAP),
-- embeds and stores chunks in Postgres + pgvector,
-- answers questions using a local Mistral 7B GGUF via llama.cpp,
-- enforces strict multi-user isolation (no cross-user retrieval).
+A fully local **Retrieval-Augmented Generation** system: E5 embeddings and **Mistral 7B** over **10,000+ indexed emails** in **PostgreSQL/pgvector**, with **JWT user isolation**, embedding caching, batched retrieval, and metrics for retrieval precision and answer faithfulness. Built for horizontally scalable, concurrent multi-user sessions.
+
+---
+
+## Highlights (resume-aligned)
+
+- **E5 embeddings + Mistral 7B** over 10k+ indexed emails; PostgreSQL/pgvector with embedding caching and batched retrieval to cut inference latency.
+- **JWT-secured backend** with strict per-user isolation; retrieval filtered by `user_id` at the SQL layer.
+- **Retrieval precision and answer faithfulness** measured across all user sessions for continuous evaluation.
+- **Horizontally scalable multi-user backend** supporting concurrent independent retrieval sessions per user.
+- **Referenceable sources** — responses include `/emails/{id}` links.
+
+---
 
 ## Features
-- **Multi-user**: JWT auth; retrieval is filtered by `user_id` at the SQL layer.
-- **Vector DB**: Postgres 16 + pgvector (cosine distance retrieval).
-- **Embeddings**: `intfloat/e5-small-v2` (CPU-friendly, 384 dims).
-- **LLM**: Mistral 7B Instruct GGUF via `llama-cpp-python`.
-- **Referenceable sources**: responses include `/emails/{id}` links.
+
+| Area | Stack |
+|------|--------|
+| **Vector DB** | Postgres 16 + pgvector (cosine distance) |
+| **Embeddings** | `intfloat/e5-small-v2` (384 dims, CPU-friendly) |
+| **LLM** | Mistral 7B Instruct GGUF via `llama-cpp-python` |
+| **Backend** | FastAPI, JWT auth, per-user isolation |
+
+---
 
 ## Repo layout
-- `docker-compose.yml` – Postgres + pgvector
-- `backend/app` – FastAPI app + RAG logic
-- `backend/scripts` – seed users, ingest `.eml`, benchmark
-- `backend/docs` – architecture, demo script, evaluation report
-- `backend/sample_data` – two-user demo emails
+
+| Path | Contents |
+|------|----------|
+| `docker-compose.yml` | Postgres + pgvector |
+| `backend/app` | FastAPI app + RAG logic |
+| `backend/scripts` | Seed users, ingest `.eml`, benchmark |
+| `backend/docs` | Architecture, demo script, evaluation report |
+| `backend/sample_data` | Two-user demo emails |
+
+---
 
 ## Quick start
 
-### 1) Start Postgres
 ```bash
 docker compose up -d
+```
 
+See `backend/README.md` or `backend/docs` for environment setup, migrations, and running the API.
+
+---
+
+## Tech stack
+
+FastAPI · SQLAlchemy · pgvector · sentence-transformers (e5-small-v2) · llama-cpp-python (Mistral 7B GGUF)
